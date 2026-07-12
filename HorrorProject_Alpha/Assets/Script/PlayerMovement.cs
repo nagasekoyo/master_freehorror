@@ -1,31 +1,49 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.Tilemaps;
 
 public class PlayerMovement : MonoBehaviour
 {
     public float moveSpeed = 5f;       // 移動速度
-    public LayerMask obstacleLayer;    // 障害物レイヤー（InspectorでObstacleを選択）
-    
+    public LayerMask obstacleLayer;    // 障害物レイヤー
+
     private bool isMoving = false;
     private Vector2 input;
 
+    private Tilemap doorTilemap;
+    private ItemManager itemManager;
+
+    // --- 【13日目追加分】ここから ---
+    private Vector3 startPosition; // 最初のスタート位置を覚える箱
+    // --- 【13日目追加分】ここまで ---
+
+    void Start()
+    {
+        // --- 【13日目追加分】開始時の位置を記憶 ---
+        startPosition = transform.position;
+        // ------------------------------------------
+
+        GameObject doorObj = GameObject.Find("Door_Tilemap");
+        if (doorObj != null) doorTilemap = doorObj.GetComponent<Tilemap>();
+
+        GameObject itemObj = GameObject.Find("Item_Tilemap");
+        if (itemObj != null) itemManager = itemObj.GetComponent<ItemManager>();
+    }
+
     void Update()
     {
-        // 移動中でない時だけ入力を受け付ける
         if (!isMoving)
         {
             input.x = Input.GetAxisRaw("Horizontal");
             input.y = Input.GetAxisRaw("Vertical");
 
-            // 斜め移動を防ぐ（横入力があれば縦を無視）
             if (input.x != 0) input.y = 0;
 
             if (input != Vector2.zero)
             {
-                // 次の移動先を計算
                 Vector3 targetPos = transform.position + new Vector3(input.x, input.y, 0f);
 
-                // 次の地点に障害物がないか円形のセンサーでチェック
                 if (CanMove(targetPos))
                 {
                     StartCoroutine(Move(targetPos));
@@ -34,14 +52,26 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // 移動可能か判定するメソッド
     bool CanMove(Vector3 targetPos)
     {
-        // 半径0.3の円を投げ、obstacleLayerにぶつかったら移動不可 (半径を大きくしすぎると、狭い通路を通れなくなる)
-        return !Physics2D.OverlapCircle(targetPos, 0.3f, obstacleLayer);
+        Collider2D hitCollider = Physics2D.OverlapCircle(targetPos, 0.3f, obstacleLayer);
+        if (hitCollider == null) return true;
+
+        if (hitCollider.gameObject.name == "Door_Tilemap" && doorTilemap != null && itemManager != null)
+        {
+            Vector3Int cellPosition = doorTilemap.WorldToCell(targetPos);
+
+            if (doorTilemap.HasTile(cellPosition) && itemManager.hasItemCount > 0)
+            {
+                doorTilemap.SetTile(cellPosition, null);
+                itemManager.hasItemCount--;
+                Debug.Log("鍵を使って扉を開けた！ 残りの鍵: " + itemManager.hasItemCount);
+                return true;
+            }
+        }
+        return false;
     }
 
-    // 1マス分移動させる
     IEnumerator Move(Vector3 targetPos)
     {
         isMoving = true;
@@ -52,8 +82,32 @@ public class PlayerMovement : MonoBehaviour
             yield return null;
         }
 
-        // ぴったり目的地の座標に合わせる
         transform.position = targetPos;
         isMoving = false;
+    }
+
+    // --- 【本来の13日目】敵に捕まったらGameOverシーンへ切り替え ---
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Enemy"))
+        {
+            Debug.Log("【ゲームオーバー】敵に捕まった！");
+
+            StopAllCoroutines();
+            isMoving = false;
+
+            // 1週目に作ったシーン切り替えスクリプトを探して実行する
+            SceneChanger sceneChanger = FindObjectOfType<SceneChanger>();
+            if (sceneChanger != null)
+            {
+                // ここにあなたの「ゲームオーバーシーンの名前」を入れてください（例: "GameOver"）
+                SceneManager.LoadScene("GameOver");
+            }
+            else
+            {
+                // もしSceneChangerが見つからない場合のバックアップ（Unity標準機能で切り替え）
+                UnityEngine.SceneManagement.SceneManager.LoadScene("GameOver");
+            }
+        }
     }
 }
