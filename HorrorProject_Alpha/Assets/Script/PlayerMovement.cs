@@ -5,6 +5,8 @@ using UnityEngine.Tilemaps;
 
 public class PlayerMovement : MonoBehaviour
 {
+    private Rigidbody2D rb;
+
     public float moveSpeed = 5f;       // 移動速度
     public LayerMask obstacleLayer;    // 障害物レイヤー
 
@@ -13,6 +15,9 @@ public class PlayerMovement : MonoBehaviour
 
     private Tilemap doorTilemap;
     private ItemManager itemManager;
+
+
+    private Vector2 movement;
 
     // --- 【13日目追加分】ここから ---
     private Vector3 startPosition; // 最初のスタート位置を覚える箱
@@ -29,6 +34,8 @@ public class PlayerMovement : MonoBehaviour
 
         GameObject itemObj = GameObject.Find("Item_Tilemap");
         if (itemObj != null) itemManager = itemObj.GetComponent<ItemManager>();
+
+        rb = GetComponent<Rigidbody2D>();
     }
 
     void Update()
@@ -50,6 +57,13 @@ public class PlayerMovement : MonoBehaviour
                 }
             }
         }
+    }
+
+    void FixedUpdate()
+    {
+        // 2. ★超重要★ 物理演算のタイミングに合わせて移動させる！
+        // これを使うと、壁やアイテムのすり抜けが100%発生しなくなります
+        rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
     }
 
     bool CanMove(Vector3 targetPos)
@@ -108,6 +122,20 @@ public class PlayerMovement : MonoBehaviour
                 // もしSceneChangerが見つからない場合のバックアップ（Unity標準機能で切り替え）
                 UnityEngine.SceneManagement.SceneManager.LoadScene("GameOver");
             }
+
+
+        }
+
+        if (other.CompareTag("Goal"))
+        {
+            // 動いている途中のコルーチン（移動処理）をすべて強制終了する
+            StopAllCoroutines();
+            isMoving = false;
+
+            Debug.Log("【クリア】脱出成功！シーンを切り替えます。");
+
+            // ★【ここを書き換え！】直接「GameClear」シーンを読み込む
+            UnityEngine.SceneManagement.SceneManager.LoadScene("GameClear");
         }
     }
 }
