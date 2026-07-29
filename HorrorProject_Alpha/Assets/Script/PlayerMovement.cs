@@ -19,6 +19,7 @@ public class PlayerMovement : MonoBehaviour
 
     private Vector2 movement;
 
+
     // --- 【13日目追加分】ここから ---
     private Vector3 startPosition; // 最初のスタート位置を覚える箱
     // --- 【13日目追加分】ここまで ---
